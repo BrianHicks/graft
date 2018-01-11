@@ -22,6 +22,7 @@ description:         Please see the README on Github at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - fgl == 5.5.4.0
+- flow == 1.0.10
 
 library:
   source-dirs: src
