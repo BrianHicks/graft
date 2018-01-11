@@ -5,12 +5,13 @@ module Ingest
   ) where
 
 import Data.Graph.Inductive.Graph
-       (LEdge, LNode, mkGraph, prettyPrint)
+       (LEdge, LNode, empty, insEdges, insNodes, labEdges, labNodes,
+        mkGraph, prettyPrint)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Hashable (hash)
 import Data.Text (Text, pack)
 import Flow
-import System.Directory.PathWalk (pathWalk)
+import System.Directory.PathWalk (pathWalkAccumulate)
 import System.FilePath (FilePath, combine, takeExtension)
 import System.FilePath.Glob (Pattern, match)
 
@@ -29,25 +30,45 @@ data Ingester = Ingester
 instance Show Ingester where
   show (Ingester forFiles _) = "Ingester for (" ++ show forFiles ++ ")"
 
+-- TODO: I don't feel great about this, but it seems to be the best
+-- way to get a Monoid instance for Graph... I don't think it can be
+-- in the inductive graph library proper since this isn't valid for
+-- all kinds of graphs, but for ours it is so... ok?
+newtype Graph =
+  Graph (Gr Subject Predicate)
+
+instance Monoid (Graph) where
+  mempty = Graph empty
+  mappend (Graph x) (Graph y) =
+    x |> (insNodes <| labNodes y) |> (insEdges <| labEdges y) |> Graph
+
+instance Show (Graph) where
+  show (Graph g) = show g
+
+unwrap :: Graph -> Gr Subject Predicate
+unwrap (Graph g) = g
+
 ingester :: Pattern -> (FilePath -> IO FileInfo) -> Ingester
 ingester = Ingester
 
 -- ingest :: [Ingester] -> FilePath -> IO (Gr Subject Predicate)
 ingest :: [Ingester] -> FilePath -> IO ()
 ingest ingesters root = do
-  pathWalk root <| ingestDirectory ingesters
+  graph <- pathWalkAccumulate root <| ingestDirectory ingesters
+  prettyPrint <| unwrap graph
   pure ()
 
 -- this signature is weird because it's meant to be used by pathWalk
-ingestDirectory :: [Ingester] -> FilePath -> [FilePath] -> [FilePath] -> IO ()
+ingestDirectory ::
+     [Ingester] -> FilePath -> [FilePath] -> [FilePath] -> IO (Graph)
 ingestDirectory ingesters dir _ files = do
   let fullPaths = map (combine dir) files
   -- TODO: strict evaluation for FS operations
   matched <- mapM (ingestFiles fullPaths) ingesters
-  case flatten matched of
-    ([], []) -> pure ()
-    (nodes, edges) ->
-      (mkGraph nodes edges :: Gr Subject Predicate) |> prettyPrint
+  pure <|
+    case flatten matched of
+      ([], []) -> mempty
+      (nodes, edges) -> Graph <| mkGraph nodes edges
 
 ingestFiles :: [FilePath] -> Ingester -> IO ([LNode Subject], [LEdge Predicate])
 ingestFiles files ingester = do
