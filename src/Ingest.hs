@@ -2,7 +2,6 @@ module Ingest
   ( Ingester
   , ingester
   , ingest
-  , testIngester
   ) where
 
 import Data.Graph.Inductive.PatriciaTree (Gr)
@@ -10,8 +9,7 @@ import Data.Text (Text, pack)
 import Flow
 import System.Directory.PathWalk (pathWalk)
 import System.FilePath (FilePath, combine, takeExtension)
-import System.FilePath.Glob (Pattern, compile, match)
-import Text.Regex
+import System.FilePath.Glob (Pattern, match)
 
 data Ingester = Ingester
   { forFiles :: Pattern
@@ -59,16 +57,3 @@ ingestFileWithIngester (Ingester _ getNodeName getRelations) filepath = do
         , ("path", pack filepath)
         ]
   (relations ++ builtin) |> map (\(pred, obj) -> (nodeName, pred, obj)) |> pure
-
-testIngester :: Ingester
-testIngester =
-  let interestingFiles = compile "**/*.hs"
-      haskellModule = mkRegex "^module (.+) .*$"
-      getNodeName filepath = do
-        contents <- readFile filepath
-        pure <|
-          case matchRegex haskellModule contents of
-            Just [moduleName] -> pack moduleName
-            _ -> pack filepath
-      getRelations _ = pure []
-  in ingester interestingFiles getNodeName getRelations
