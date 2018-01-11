@@ -4,7 +4,9 @@ module Ingest
   , ingest
   ) where
 
+import Data.Graph.Inductive.Graph (LEdge, LNode)
 import Data.Graph.Inductive.PatriciaTree (Gr)
+import Data.Hashable (hash)
 import Data.Text (Text, pack)
 import Flow
 import System.Directory.PathWalk (pathWalk)
@@ -32,28 +34,48 @@ ingest :: [Ingester] -> FilePath -> IO ()
 ingest ingesters root = do
   pathWalk root <| \dir subdirs files -> do
     let fullPaths = map (combine dir) files
-    matched <-
-      ingesters |> mapM (ingestFilesWithIngester fullPaths) |> fmap concat
-    case matched of
-      [] -> pure ()
+    matched <- ingesters |> mapM (ingestFilesWithIngester fullPaths)
+    case flattenNodesAndEdges matched of
+      ([], []) -> pure ()
       _ -> putStrLn (show matched)
   -- 2a. getting the node names and relations for those ingesters whose `forFiles` match
   -- 3. convert that information to something I can make into a graph
   -- 4. return the graph, hooray!
   pure ()
 
-ingestFilesWithIngester :: [FilePath] -> Ingester -> IO [(Text, Text, Text)]
-ingestFilesWithIngester files ingester = do
-  filter (match (forFiles ingester)) files |>
-    mapM (ingestFileWithIngester ingester) |>
-    fmap concat
+toNode :: Text -> LNode Text
+toNode label = (hash label, label)
 
-ingestFileWithIngester :: Ingester -> FilePath -> IO [(Text, Text, Text)]
+toEdge :: Text -> Text -> Text -> LEdge Text
+toEdge subject predicate object = (hash subject, hash object, predicate)
+
+flattenNodesAndEdges ::
+     [([LNode Text], [LEdge Text])] -> ([LNode Text], [LEdge Text])
+flattenNodesAndEdges everything =
+  foldr
+    (\(newNodes, newEdges) (nodes, edges) ->
+       (newNodes ++ nodes, newEdges ++ edges))
+    ([], [])
+    everything
+
+ingestFilesWithIngester ::
+     [FilePath] -> Ingester -> IO ([LNode Text], [LEdge Text])
+ingestFilesWithIngester files ingester = do
+  let interesting = filter (match (forFiles ingester)) files
+  nodesAndEdges <- mapM (ingestFileWithIngester ingester) interesting
+  pure <| flattenNodesAndEdges nodesAndEdges
+
+ingestFileWithIngester ::
+     Ingester -> FilePath -> IO ([LNode Text], [LEdge Text])
 ingestFileWithIngester (Ingester _ getNodeName getRelations) filepath = do
-  nodeName <- getNodeName filepath
+  subject <- getNodeName filepath
   relations <- getRelations filepath
-  let builtin =
+  -- edges
+  let out =
+        relations ++
         [ ("extension", filepath |> takeExtension |> drop 1 |> pack)
         , ("path", pack filepath)
-        ]
-  (relations ++ builtin) |> map (\(pred, obj) -> (nodeName, pred, obj)) |> pure
+        ] -- TODO: treat these as a set and don't override if predicate already set
+  let nodes = toNode subject : map (\(_, obj) -> toNode obj) out
+  let edges = map (\(pred, obj) -> toEdge subject pred obj) out
+  pure (nodes, edges)

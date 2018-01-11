@@ -26,9 +26,10 @@ dependencies:
 - filepath == 1.4.1.2
 - flow == 1.0.10
 - Glob == 0.9.1
+- hashable == 1.2.6.1
 - pathwalk == 0.3.1.2
-- text == 1.2.2.2
 - regex-compat == 0.95.1 # for matching lines to test... probably use a parser later
+- text == 1.2.2.2
 
 library:
   source-dirs: src
