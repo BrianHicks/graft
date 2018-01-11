@@ -16,18 +16,13 @@ import System.FilePath.Glob (Pattern, match)
 
 data Ingester = Ingester
   { forFiles :: Pattern
-  , nodeName :: FilePath -> IO Text
-  , relations :: FilePath -> IO [(Text, Text)]
+  , parse :: FilePath -> IO (Text, [(Text, Text)])
   }
 
 instance Show Ingester where
-  show (Ingester forFiles _ _) = "Ingester for (" ++ show forFiles ++ ")"
+  show (Ingester forFiles _) = "Ingester for (" ++ show forFiles ++ ")"
 
-ingester ::
-     Pattern
-  -> (FilePath -> IO Text)
-  -> (FilePath -> IO [(Text, Text)])
-  -> Ingester
+ingester :: Pattern -> (FilePath -> IO (Text, [(Text, Text)])) -> Ingester
 ingester = Ingester
 
 -- ingest :: [Ingester] -> FilePath -> IO (Gr Text Text)
@@ -66,9 +61,8 @@ ingestFiles files ingester = do
   pure <| flattenNodesAndEdges nodesAndEdges
 
 ingestFile :: Ingester -> FilePath -> IO ([LNode Text], [LEdge Text])
-ingestFile (Ingester _ getNodeName getRelations) filepath = do
-  subject <- getNodeName filepath
-  relations <- getRelations filepath
+ingestFile (Ingester _ getInfo) filepath = do
+  (subject, relations) <- getInfo filepath
   -- edges
   let out =
         relations ++

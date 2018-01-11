@@ -15,11 +15,10 @@ testIngester :: Ingester
 testIngester =
   let interestingFiles = compile "**/*.hs"
       haskellModule = mkRegex "^module (.+) .*$"
-      getNodeName filepath = do
+      parse filepath = do
         contents <- readFile filepath
         pure <|
           case matchRegex haskellModule contents of
-            Just [moduleName] -> pack moduleName
-            _ -> pack filepath
-      getRelations _ = pure []
-  in ingester interestingFiles getNodeName getRelations
+            Just [moduleName] -> (pack moduleName, [])
+            _ -> (pack filepath, [])
+  in ingester interestingFiles parse
