@@ -30,17 +30,20 @@ data Ingester = Ingester
 instance Show Ingester where
   show (Ingester forFiles _) = "Ingester for (" ++ show forFiles ++ ")"
 
--- TODO: I don't feel great about this, but it seems to be the best
--- way to get a Monoid instance for Graph... I don't think it can be
--- in the inductive graph library proper since this isn't valid for
--- all kinds of graphs, but for ours it is so... ok?
+-- I don't feel great about this, but it seems to be the best way to
+-- get a Monoid instance for Graph... I don't think it can be in the
+-- inductive graph library proper since this isn't valid for all kinds
+-- of graphs, but for ours it is so... ok?
 newtype Graph =
   Graph (Gr Subject Predicate)
 
 instance Monoid (Graph) where
   mempty = Graph empty
-  mappend (Graph x) (Graph y) =
-    x |> (insNodes <| labNodes y) |> (insEdges <| labEdges y) |> Graph
+  mappend (Graph x) (Graph y)
+    -- note that the order matters here... nodes must come before
+    -- edges since the graph library rightly refuses to add dangling
+    -- eges.
+   = x |> (insNodes <| labNodes y) |> (insEdges <| labEdges y) |> Graph
 
 instance Show (Graph) where
   show (Graph g) = show g
