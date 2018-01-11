@@ -4,7 +4,8 @@ module Ingest
   , ingest
   ) where
 
-import Data.Graph.Inductive.Graph (LEdge, LNode)
+import Data.Graph.Inductive.Graph
+       (LEdge, LNode, mkGraph, prettyPrint)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Hashable (hash)
 import Data.Text (Text, pack)
@@ -37,7 +38,7 @@ ingest ingesters root = do
     matched <- ingesters |> mapM (ingestFiles fullPaths)
     case flattenNodesAndEdges matched of
       ([], []) -> pure ()
-      _ -> putStrLn (show matched)
+      (nodes, edges) -> (mkGraph nodes edges :: Gr Text Text) |> prettyPrint
   -- 2a. getting the node names and relations for those ingesters whose `forFiles` match
   -- 3. convert that information to something I can make into a graph
   -- 4. return the graph, hooray!
