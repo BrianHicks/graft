@@ -80,11 +80,8 @@ ingestFile :: Ingester -> FilePath -> IO ([LNode Subject], [LEdge Predicate])
 ingestFile (Ingester _ getInfo) filepath = do
   (subject, relations) <- getInfo filepath
   -- edges
-  let out =
-        relations ++
-        [ ("extension", filepath |> takeExtension |> drop 1 |> pack)
-        , ("path", pack filepath)
-        ] -- TODO: treat these as a set and don't override if predicate already set
+  let out -- TODO: treat these as a set and don't override if predicate already set
+       = ("path", pack filepath) : relations
   let nodes = toNode subject : map (\(_, obj) -> toNode obj) out
   let edges = map (\(pred, obj) -> toEdge subject pred obj) out
   pure (nodes, edges)
