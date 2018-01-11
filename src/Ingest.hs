@@ -35,39 +35,25 @@ ingester = Ingester
 -- ingest :: [Ingester] -> FilePath -> IO (Gr Subject Predicate)
 ingest :: [Ingester] -> FilePath -> IO ()
 ingest ingesters root = do
-  pathWalk root <| \dir subdirs files -> do
-    let fullPaths = map (combine dir) files
-    matched <- ingesters |> mapM (ingestFiles fullPaths)
-    case flattenNodesAndEdges matched of
-      ([], []) -> pure ()
-      (nodes, edges) ->
-        (mkGraph nodes edges :: Gr Subject Predicate) |> prettyPrint
-  -- 2a. getting the node names and relations for those ingesters whose `forFiles` match
-  -- 3. convert that information to something I can make into a graph
-  -- 4. return the graph, hooray!
+  pathWalk root <| ingestDirectory ingesters
   pure ()
 
-toNode :: Subject -> LNode Subject
-toNode label = (hash label, label)
-
-toEdge :: Subject -> Predicate -> Subject -> LEdge Predicate
-toEdge subject predicate object = (hash subject, hash object, predicate)
-
-flattenNodesAndEdges ::
-     [([LNode Subject], [LEdge Predicate])]
-  -> ([LNode Subject], [LEdge Predicate])
-flattenNodesAndEdges everything =
-  foldr
-    (\(newNodes, newEdges) (nodes, edges) ->
-       (newNodes ++ nodes, newEdges ++ edges))
-    ([], [])
-    everything
+-- this signature is weird because it's meant to be used by pathWalk
+ingestDirectory :: [Ingester] -> FilePath -> [FilePath] -> [FilePath] -> IO ()
+ingestDirectory ingesters dir _ files = do
+  let fullPaths = map (combine dir) files
+  -- TODO: strict evaluation for FS operations
+  matched <- mapM (ingestFiles fullPaths) ingesters
+  case flatten matched of
+    ([], []) -> pure ()
+    (nodes, edges) ->
+      (mkGraph nodes edges :: Gr Subject Predicate) |> prettyPrint
 
 ingestFiles :: [FilePath] -> Ingester -> IO ([LNode Subject], [LEdge Predicate])
 ingestFiles files ingester = do
   let interesting = filter (match (forFiles ingester)) files
   nodesAndEdges <- mapM (ingestFile ingester) interesting
-  pure <| flattenNodesAndEdges nodesAndEdges
+  pure <| flatten nodesAndEdges
 
 ingestFile :: Ingester -> FilePath -> IO ([LNode Subject], [LEdge Predicate])
 ingestFile (Ingester _ getInfo) filepath = do
@@ -81,3 +67,19 @@ ingestFile (Ingester _ getInfo) filepath = do
   let nodes = toNode subject : map (\(_, obj) -> toNode obj) out
   let edges = map (\(pred, obj) -> toEdge subject pred obj) out
   pure (nodes, edges)
+
+toNode :: Subject -> LNode Subject
+toNode label = (hash label, label)
+
+toEdge :: Subject -> Predicate -> Subject -> LEdge Predicate
+toEdge subject predicate object = (hash subject, hash object, predicate)
+
+flatten ::
+     [([LNode Subject], [LEdge Predicate])]
+  -> ([LNode Subject], [LEdge Predicate])
+flatten everything =
+  foldr
+    (\(newNodes, newEdges) (nodes, edges) ->
+       (newNodes ++ nodes, newEdges ++ edges))
+    ([], [])
+    everything
