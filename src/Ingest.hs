@@ -34,7 +34,7 @@ ingest :: [Ingester] -> FilePath -> IO ()
 ingest ingesters root = do
   pathWalk root <| \dir subdirs files -> do
     let fullPaths = map (combine dir) files
-    matched <- ingesters |> mapM (ingestFilesWithIngester fullPaths)
+    matched <- ingesters |> mapM (ingestFiles fullPaths)
     case flattenNodesAndEdges matched of
       ([], []) -> pure ()
       _ -> putStrLn (show matched)
@@ -58,16 +58,14 @@ flattenNodesAndEdges everything =
     ([], [])
     everything
 
-ingestFilesWithIngester ::
-     [FilePath] -> Ingester -> IO ([LNode Text], [LEdge Text])
-ingestFilesWithIngester files ingester = do
+ingestFiles :: [FilePath] -> Ingester -> IO ([LNode Text], [LEdge Text])
+ingestFiles files ingester = do
   let interesting = filter (match (forFiles ingester)) files
-  nodesAndEdges <- mapM (ingestFileWithIngester ingester) interesting
+  nodesAndEdges <- mapM (ingestFile ingester) interesting
   pure <| flattenNodesAndEdges nodesAndEdges
 
-ingestFileWithIngester ::
-     Ingester -> FilePath -> IO ([LNode Text], [LEdge Text])
-ingestFileWithIngester (Ingester _ getNodeName getRelations) filepath = do
+ingestFile :: Ingester -> FilePath -> IO ([LNode Text], [LEdge Text])
+ingestFile (Ingester _ getNodeName getRelations) filepath = do
   subject <- getNodeName filepath
   relations <- getRelations filepath
   -- edges
