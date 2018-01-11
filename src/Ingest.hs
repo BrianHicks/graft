@@ -1,4 +1,9 @@
-module Ingest where
+module Ingest
+  ( Ingester
+  , ingester
+  , ingest
+  , testIngester
+  ) where
 
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Text (Text, pack)
