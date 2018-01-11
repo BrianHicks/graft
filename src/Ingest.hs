@@ -4,7 +4,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Text (Text, pack)
 import Flow
 import System.Directory.PathWalk (pathWalk)
-import System.FilePath (FilePath, combine)
+import System.FilePath (FilePath, combine, takeExtension)
 import System.FilePath.Glob (Pattern, compile, match)
 
 data Ingester = Ingester
@@ -28,7 +28,8 @@ ingest :: [Ingester] -> FilePath -> IO ()
 ingest ingesters root = do
   pathWalk root <| \dir subdirs files -> do
     let fullPaths = map (combine dir) files
-    matched <- ingesters |> mapM (ingestSingle fullPaths) |> fmap concat
+    matched <-
+      ingesters |> mapM (ingestFilesWithIngester fullPaths) |> fmap concat
     case matched of
       [] -> pure ()
       _ -> putStrLn (show matched)
@@ -37,9 +38,21 @@ ingest ingesters root = do
   -- 4. return the graph, hooray!
   pure ()
 
-ingestSingle :: [FilePath] -> Ingester -> IO [FilePath]
-ingestSingle files (Ingester forFiles _ _) =
-  files |> filter (match forFiles) |> pure
+ingestFilesWithIngester :: [FilePath] -> Ingester -> IO [(Text, Text, Text)]
+ingestFilesWithIngester files ingester = do
+  filter (match (forFiles ingester)) files |>
+    mapM (ingestFileWithIngester ingester) |>
+    fmap concat
+
+ingestFileWithIngester :: Ingester -> FilePath -> IO [(Text, Text, Text)]
+ingestFileWithIngester (Ingester _ getNodeName getRelations) filepath = do
+  nodeName <- getNodeName filepath
+  relations <- getRelations filepath
+  let builtin =
+        [ ("extension", filepath |> takeExtension |> drop 1 |> pack)
+        , ("path", pack filepath)
+        ]
+  (relations ++ builtin) |> map (\(pred, obj) -> (nodeName, pred, obj)) |> pure
 
 testIngester :: Ingester
 testIngester =
