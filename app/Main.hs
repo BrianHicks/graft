@@ -1,10 +1,14 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Main where
 
 import Data.Graph.Inductive.Graph (labEdges, labNodes)
 import Data.Graph.Inductive.PatriciaTree (Gr)
+import Data.Hashable (Hashable)
 import Data.List (intersperse)
 import Data.Text (Text, pack)
 import Flow
+import GHC.Generics (Generic)
 import Ingest
 import System.FilePath
 import System.FilePath.Glob (compile)
@@ -16,33 +20,49 @@ main = do
   -- until we get fancy, let's make a graphviz graph out of these.
   putStrLn $ digraph graph
 
-digraph :: Gr Text Text -> String
+digraph :: (Show node, Show edge) => Gr node edge -> String
 digraph graph =
   let nodes =
         labNodes graph |>
-        map (\(id, label) -> quoted id ++ "[label=" ++ show label ++ "];")
+        map (\(id, label) -> quoted id ++ "[label=" ++ quoted label ++ "];")
       edges =
         labEdges graph |>
         map
           (\(subj, obj, label) ->
              quoted subj ++
-             " -> " ++ quoted obj ++ "[label=" ++ show label ++ "];")
+             " -> " ++ quoted obj ++ "[label=" ++ quoted label ++ "];")
   in "digraph {\n" ++ join "\n" nodes ++ "\n" ++ join "\n" edges ++ "\n}"
 
 join :: String -> [String] -> String
 join char items = items |> intersperse char |> concat
 
 quoted :: Show a => a -> String
-quoted a = "\"" ++ show a ++ "\""
+quoted a = "\"" ++ filter (/= '"') (show a) ++ "\"" -- TODO: less cheating
 
-testIngester :: Ingester
+data Node
+  = Haskell Text
+  | Filetype Text
+  deriving (Show, Generic)
+
+instance Hashable Node
+
+data Edge
+  = Imports
+  | HasFiletype
+  deriving (Show, Generic)
+
+instance Hashable Edge
+
+testIngester :: Ingester Node Edge
 testIngester =
   let interestingFiles = compile "**/*.hs"
       haskellModule = mkRegex "^module ([a-zA-Z\\.]+).*$"
       haskellImport = mkRegex "^import ([a-zA-Z\\.]+)( \\(.+\\))?$"
       parse filepath = do
         contents <- readFile filepath
-        let name =
+        let name :: Node
+            name =
+              Haskell <|
               case matchRegex haskellModule contents of
                 Just [moduleName] -> pack moduleName
                 _ -> pack filepath
@@ -51,10 +71,10 @@ testIngester =
               map
                 (\items ->
                    case items of
-                     i:_ -> [("imports", pack i)]
+                     i:_ -> [(Imports, Haskell <| pack i)]
                      [] -> []) |>
               concat
-        pure (name, ("filetype", "haskell") : imports)
+        pure (name, (HasFiletype, Filetype "haskell") : imports)
   in ingester interestingFiles parse
 
 matchAll :: Regex -> String -> [[String]]
