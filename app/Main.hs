@@ -6,10 +6,12 @@ import Text.Regex
 import System.FilePath.Glob (compile)
 import Data.Text (pack)
 import Flow
+import Data.Graph.Inductive.Graph (prettyPrint)
 
 main :: IO ()
-main =
-  ingest [ testIngester ] "."
+main = do
+  graph <- ingest [ testIngester ] "."
+  prettyPrint graph
 
 testIngester :: Ingester
 testIngester =

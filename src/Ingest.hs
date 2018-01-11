@@ -6,7 +6,7 @@ module Ingest
 
 import Data.Graph.Inductive.Graph
        (LEdge, LNode, empty, insEdges, insNodes, labEdges, labNodes,
-        mkGraph, prettyPrint)
+        mkGraph)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Hashable (hash)
 import Data.Text (Text, pack)
@@ -54,12 +54,9 @@ unwrap (Graph g) = g
 ingester :: Pattern -> (FilePath -> IO FileInfo) -> Ingester
 ingester = Ingester
 
--- ingest :: [Ingester] -> FilePath -> IO (Gr Subject Predicate)
-ingest :: [Ingester] -> FilePath -> IO ()
-ingest ingesters root = do
-  graph <- pathWalkAccumulate root <| ingestDirectory ingesters
-  prettyPrint <| unwrap graph
-  pure ()
+ingest :: [Ingester] -> FilePath -> IO (Gr Subject Predicate)
+ingest ingesters root =
+  ingestDirectory ingesters |> pathWalkAccumulate root |> fmap unwrap
 
 -- this signature is weird because it's meant to be used by pathWalk
 ingestDirectory ::
