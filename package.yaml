@@ -27,6 +27,9 @@ dependencies:
 library:
   source-dirs: src
 
+default-extensions:
+- OverloadedStrings
+
 executables:
   graft-exe:
     main:                Main.hs
