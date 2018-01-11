@@ -2,15 +2,13 @@
 
 module Main where
 
-import Data.Graph.Inductive.Graph (labEdges, labNodes)
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Hashable (Hashable)
-import Data.List (intersperse)
 import Data.Text (Text, pack)
+import Digraph (digraph)
 import Flow
 import GHC.Generics (Generic)
-import Ingest
-import System.FilePath
+import Ingest (Ingester, ingest, ingester)
+import System.FilePath -- TODO: list imports
 import System.FilePath.Glob (compile)
 import Text.Regex (Regex, matchRegex, matchRegexAll, mkRegex)
 
@@ -19,25 +17,6 @@ main = do
   graph <- ingest [testIngester] "."
   -- until we get fancy, let's make a graphviz graph out of these.
   putStrLn $ digraph graph
-
-digraph :: (Show node, Show edge) => Gr node edge -> String
-digraph graph =
-  let nodes =
-        labNodes graph |>
-        map (\(id, label) -> quoted id ++ "[label=" ++ quoted label ++ "];")
-      edges =
-        labEdges graph |>
-        map
-          (\(subj, obj, label) ->
-             quoted subj ++
-             " -> " ++ quoted obj ++ "[label=" ++ quoted label ++ "];")
-  in "digraph {\n" ++ join "\n" nodes ++ "\n" ++ join "\n" edges ++ "\n}"
-
-join :: String -> [String] -> String
-join char items = items |> intersperse char |> concat
-
-quoted :: Show a => a -> String
-quoted a = "\"" ++ filter (/= '"') (show a) ++ "\"" -- TODO: less cheating
 
 data Node
   = Haskell Text
