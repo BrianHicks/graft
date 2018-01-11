@@ -6,6 +6,7 @@ import Flow
 import System.Directory.PathWalk (pathWalk)
 import System.FilePath (FilePath, combine, takeExtension)
 import System.FilePath.Glob (Pattern, compile, match)
+import Text.Regex
 
 data Ingester = Ingester
   { forFiles :: Pattern
@@ -56,4 +57,13 @@ ingestFileWithIngester (Ingester _ getNodeName getRelations) filepath = do
 
 testIngester :: Ingester
 testIngester =
-  ingester (compile "**/*.hs") (\path -> pure <| pack path) (\path -> pure [])
+  let interestingFiles = compile "**/*.hs"
+      haskellModule = mkRegex "^module (.+) .*$"
+      getNodeName filepath = do
+        contents <- readFile filepath
+        pure <|
+          case matchRegex haskellModule contents of
+            Just [moduleName] -> pack moduleName
+            _ -> pack filepath
+      getRelations _ = pure []
+  in ingester interestingFiles getNodeName getRelations

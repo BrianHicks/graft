@@ -28,6 +28,7 @@ dependencies:
 - Glob == 0.9.1
 - pathwalk == 0.3.1.2
 - text == 1.2.2.2
+- regex-compat == 0.95.1 # for matching lines to test... probably use a parser later
 
 library:
   source-dirs: src
