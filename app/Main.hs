@@ -1,6 +1,8 @@
 module Main where
 
-import Lib
+import Ingest
+import System.FilePath
 
 main :: IO ()
-main = someFunc
+main =
+  ingest [ testIngester ] "."
