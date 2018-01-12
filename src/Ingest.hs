@@ -1,5 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
-
 module Ingest
   ( Ingester
   , ingester
@@ -24,9 +22,6 @@ data Ingester node edge = Ingester
   , parse :: FilePath -> IO (FileInfo node edge)
   }
 
-instance Show (Ingester node edge) where
-  show (Ingester forFiles _) = "Ingester for (" ++ show forFiles ++ ")"
-
 -- I don't feel great about this, but it seems to be the best way to
 -- get a Monoid instance for Graph... I don't think it can be in the
 -- inductive graph library proper since this isn't valid for all kinds
@@ -41,10 +36,6 @@ instance Monoid (Graph node edge) where
     -- edges since the graph library rightly refuses to add dangling
     -- eges.
    = x |> (insNodes <| labNodes y) |> (insEdges <| labEdges y) |> Graph
-
-instance (Show node, Show edge) => Show (Graph node edge) where
-  show :: (Show node, Show edge) => Graph node edge -> String
-  show (Graph g) = show g
 
 unwrap :: Graph node edge -> Gr node edge
 unwrap (Graph g) = g
