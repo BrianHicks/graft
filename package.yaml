@@ -36,6 +36,7 @@ library:
 
 default-extensions:
 - OverloadedStrings
+- DeriveGeneric
 
 executables:
   graft:
