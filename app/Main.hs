@@ -3,7 +3,7 @@ module Main where
 import Digraph (digraph)
 import Flow
 import Ingest (ingest)
-import Language (haskell)
+import Language.Haskell (haskell)
 
 main :: IO ()
 main = do
