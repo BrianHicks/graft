@@ -2,43 +2,54 @@ module Language.Haskell
   ( haskell
   ) where
 
-import Data.Text (pack)
+import Data.Attoparsec.Text -- can't be bothered to list imports...
+import Data.Char (isSpace)
+import Data.Either (lefts)
+import Data.Text (Text, pack, unpack)
+import qualified Data.Text.IO as T
 import Flow
 import Ingest (Ingester, ingester)
 import Language
        (Edge(HasFiletype, Imports), Node(Filetype, Haskell))
 import System.FilePath.Glob (compile)
-import Text.Regex (Regex, matchRegex, matchRegexAll, mkRegex)
 
 haskell :: Ingester Node Edge
 haskell =
   let interestingFiles = compile "**/*.hs"
-      haskellModule = mkRegex "^module ([a-zA-Z\\.]+).*$"
-      haskellImport = mkRegex "^import ([a-zA-Z\\.]+)( \\(.+\\))?$"
-      parse filepath = do
-        contents <- readFile filepath
-        let name :: Node
-            name =
-              Haskell <|
-              case matchRegex haskellModule contents of
-                Just [moduleName] -> pack moduleName
-                _ -> pack filepath
-        let imports =
-              matchAll haskellImport contents |>
-              map
-                (\items ->
-                   case items of
-                     i:_ -> [(Imports, Haskell <| pack i)]
-                     [] -> []) |>
-              concat
-        pure (name, (HasFiletype, Filetype "haskell") : imports)
-  in ingester interestingFiles parse
+      getInfo filepath = do
+        contents <- T.readFile filepath
+        let (name, edges) =
+              case parseOnly (fileInfo filepath) contents of
+                Right res -> res
+                Left _ -> (Haskell <| pack filepath, [])
+        return (name, (HasFiletype, Filetype "haskell") : edges)
+  in ingester interestingFiles getInfo
 
-matchAll :: Regex -> String -> [[String]]
-matchAll = matchAllAcc []
+fileInfo :: FilePath -> Parser (Node, [(Edge, Node)])
+fileInfo filename = do
+  name <- option (Haskell <| pack filename) haskellModule
+  imports <- sepBy (eitherP haskellImport line) endOfLine
+  return (name, lefts imports)
 
-matchAllAcc :: [[String]] -> Regex -> String -> [[String]]
-matchAllAcc acc regex contents =
-  case matchRegexAll regex contents of
-    Just (_, _, next, match) -> matchAllAcc (match : acc) regex next
-    Nothing -> reverse acc
+haskellModule :: Parser Node
+haskellModule = do
+  string "module "
+  name <- takeTill isSpace
+  line
+  return <| Haskell name
+
+haskellImport :: Parser (Edge, Node)
+haskellImport = do
+  string "import "
+  name <- takeTill isSpace
+  line
+  return (Imports, Haskell name)
+
+line :: Parser Text
+line = do
+  line <- takeTill isEndOfLine
+  endOfLine
+  return line
+
+emptyLine :: Parser ()
+emptyLine = endOfLine
