@@ -34,6 +34,7 @@ dependencies:
 - attoparsec == 0.13.2.0
 - parsec == 3.1.11
 - megaparsec == 6.3.0
+- parser-combinators == 0.4.0
 
 library:
   source-dirs: src

@@ -11,7 +11,7 @@ import GHC.Generics (Generic)
 -- location, while still sharing things like `Imports` between all the
 -- languages?
 data Node
-  = Haskell Text
+  = Haskell Text [Text]
   | Filetype Text
   deriving (Show, Generic)
 
