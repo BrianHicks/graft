@@ -3,18 +3,18 @@ module Language.Haskell
   ) where
 
 import Data.Char (isSpace)
-import Data.Void
+import Data.Maybe (catMaybes)
 import Data.Text (Text, pack, unpack)
 import qualified Data.Text.IO as T
+import Data.Void
 import Flow
 import Ingest (Ingester, ingester)
 import Language
        (Edge(HasFiletype, Imports), Node(Filetype, Haskell))
-import System.FilePath.Glob (compile)
 import System.FilePath (FilePath)
+import System.FilePath.Glob (compile)
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Control.Applicative (optional)
 import Text.Megaparsec.Error (parseErrorPretty)
 
 haskell :: Ingester Node Edge
@@ -33,7 +33,8 @@ type Parser = Parsec Void Text
 parser :: FilePath -> Parser (Node, [(Edge, Node)])
 parser filepath = do
   name <- haskellModule <|> (pure <| Haskell (pack filepath) [])
-  return (name, [])
+  edges <- haskellBody
+  return (name, edges)
 
 haskellModule :: Parser Node
 haskellModule = do
@@ -62,19 +63,28 @@ haskellExport = do
   string "," <|> "" -- TODO: hack alert!
   space
   return <| pack export
-  
--- haskellImport :: Parser (Edge, Node)
--- haskellImport = do
---   string "import "
---   name <- takeTill isSpace
---   line
---   return (Imports, Haskell name)
 
--- line :: Parser Text
--- line = do
---   line <- takeTill isEndOfLine
---   endOfLine
---   return line
+haskellBody :: Parser [(Edge, Node)]
+haskellBody = do
+  space
+  statements <- some haskellStatement
+  pure <| catMaybes statements
 
--- emptyLine :: Parser ()
--- emptyLine = endOfLine
+haskellStatement :: Parser (Maybe (Edge, Node))
+haskellStatement = choice [Just <$> haskellImport, Nothing <$ dontCare]
+
+haskellImport :: Parser (Edge, Node)
+haskellImport = do
+  string "import"
+  space1
+  name <-
+    some
+      ((oneOf <| '.' : ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) <?>
+       "import")
+  -- TODO: HaskellModule vs HaskellIdentifier
+  return (Imports, Haskell (pack name) [])
+
+dontCare :: Parser ()
+dontCare = do
+  someTill anyChar eol
+  pure ()
