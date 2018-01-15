@@ -91,7 +91,7 @@ body = do
   pure <| catMaybes statements
 
 statement :: Parser (Maybe (Edge, Node))
-statement = choice [Just <$> importStatement, Nothing <$ dontCare]
+statement = choice [Just <$> try importStatement, Nothing <$ dontCare]
 
 importStatement :: Parser (Edge, Node)
 importStatement = do
