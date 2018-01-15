@@ -47,17 +47,17 @@ type Parser = Parsec Void Text
 
 parser :: FilePath -> Parser (Node, [(Edge, Node)])
 parser filepath = do
-  (name, exports) <- haskellModule <|> (pure <| (Module (pack filepath), []))
-  edges <- haskellBody
+  (name, exports) <- moduleStatement <|> (pure <| (Module (pack filepath), []))
+  edges <- body
   return (name, exports ++ edges)
 
-haskellModule :: Parser (Node, [(Edge, Node)])
-haskellModule = do
+moduleStatement :: Parser (Node, [(Edge, Node)])
+moduleStatement = do
   string "module"
   space1
   name <- takeWhile1P (Just "module name") (not . isSpace)
   space1
-  rawExports <- haskellExports <|> pure []
+  rawExports <- exports <|> pure []
   space
   string "where"
   ---
@@ -67,15 +67,15 @@ haskellModule = do
         map ((,) Exports)
   return <| (Module name, exports)
 
-haskellExports :: Parser [Text]
-haskellExports = do
+exports :: Parser [Text]
+exports = do
   string "("
-  exports <- some haskellExport
+  exports <- some export
   string ")"
   return exports
 
-haskellExport :: Parser Text
-haskellExport = do
+export :: Parser Text
+export = do
   space
   export <- some alphaNumChar <?> "export"
   string "(..)" <|> ""
@@ -84,17 +84,17 @@ haskellExport = do
   space
   return <| pack export
 
-haskellBody :: Parser [(Edge, Node)]
-haskellBody = do
+body :: Parser [(Edge, Node)]
+body = do
   space
-  statements <- some haskellStatement
+  statements <- some statement
   pure <| catMaybes statements
 
-haskellStatement :: Parser (Maybe (Edge, Node))
-haskellStatement = choice [Just <$> haskellImport, Nothing <$ dontCare]
+statement :: Parser (Maybe (Edge, Node))
+statement = choice [Just <$> importStatement, Nothing <$ dontCare]
 
-haskellImport :: Parser (Edge, Node)
-haskellImport = do
+importStatement :: Parser (Edge, Node)
+importStatement = do
   string "import"
   space1
   string "qualified" <|> ""
@@ -103,7 +103,6 @@ haskellImport = do
     some
       ((oneOf <| '.' : ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) <?>
        "import")
-  -- TODO: HaskellModule vs HaskellIdentifier
   return (Imports, Module (pack name))
 
 dontCare :: Parser ()
