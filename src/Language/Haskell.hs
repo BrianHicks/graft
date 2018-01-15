@@ -62,9 +62,7 @@ moduleStatement = do
   string "where"
   ---
   let exports =
-        rawExports |> map (\e -> Data.Text.concat [name, ".", e]) |>
-        map Identifier |>
-        map ((,) Exports)
+        rawExports |> map (qualify name) |> map Identifier |> map ((,) Exports)
   return <| (Module name, exports)
 
 exports :: Parser [Text]
@@ -88,12 +86,12 @@ body :: Parser [(Edge, Node)]
 body = do
   space
   statements <- some statement
-  pure <| catMaybes statements
+  pure <| Prelude.concat <| catMaybes statements
 
-statement :: Parser (Maybe (Edge, Node))
+statement :: Parser (Maybe [(Edge, Node)])
 statement = choice [Just <$> try importStatement, Nothing <$ dontCare]
 
-importStatement :: Parser (Edge, Node)
+importStatement :: Parser [(Edge, Node)]
 importStatement = do
   string "import"
   space1
@@ -103,9 +101,31 @@ importStatement = do
     some
       ((oneOf <| '.' : ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) <?>
        "import")
-  return (Imports, Module (pack name))
+  space
+  rawIdentifiers <- try importIdentifiers -- <|> pure []
+  let identifiers =
+        rawIdentifiers |> map (qualify (pack name)) |> map Identifier |>
+        map ((,) Imports)
+  return <| (Imports, Module (pack name)) : identifiers
+
+importIdentifiers :: Parser [Text]
+importIdentifiers = do
+  string "("
+  space
+  let single :: Parser String
+      single = some alphaNumChar
+  identifiers <- sepBy1 single ("," *> space)
+  pure <| map pack identifiers
 
 dontCare :: Parser ()
 dontCare = do
   someTill anyChar eol
   pure ()
+
+stringUnit :: Text -> Parser ()
+stringUnit s = do
+  string s
+  return ()
+
+qualify :: Text -> Text -> Text
+qualify moduleName identifier = Data.Text.concat [moduleName, ".", identifier]
