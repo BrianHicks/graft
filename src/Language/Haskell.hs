@@ -1,21 +1,37 @@
 module Language.Haskell
   ( haskell
+  , Node
+  , Edge
   ) where
 
 import Data.Char (isSpace)
+import Data.Hashable (Hashable)
 import Data.Maybe (catMaybes)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, concat, pack, unpack)
 import qualified Data.Text.IO as T
 import Data.Void
 import Flow
+import GHC.Generics (Generic)
 import Ingest (Ingester, ingester)
-import Language
-       (Edge(HasFiletype, Imports), Node(Filetype, Haskell))
 import System.FilePath (FilePath)
 import System.FilePath.Glob (compile)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error (parseErrorPretty)
+
+data Node
+  = Module Text
+  | Identifier Text
+  deriving (Show, Generic)
+
+instance Hashable Node
+
+data Edge
+  = Imports
+  | Exports
+  deriving (Show, Generic)
+
+instance Hashable Edge
 
 haskell :: Ingester Node Edge
 haskell =
@@ -24,28 +40,32 @@ haskell =
         contents <- T.readFile filepath
         case parse (parser filepath) filepath contents of
           Left err -> fail <| parseErrorPretty err
-          Right (node, edges) ->
-            return (node, (HasFiletype, Filetype "haskell") : edges)
+          Right success -> return success
   in ingester interestingFiles getInfo
 
 type Parser = Parsec Void Text
 
 parser :: FilePath -> Parser (Node, [(Edge, Node)])
 parser filepath = do
-  name <- haskellModule <|> (pure <| Haskell (pack filepath) [])
+  (name, exports) <- haskellModule <|> (pure <| (Module (pack filepath), []))
   edges <- haskellBody
-  return (name, edges)
+  return (name, exports ++ edges)
 
-haskellModule :: Parser Node
+haskellModule :: Parser (Node, [(Edge, Node)])
 haskellModule = do
   string "module"
   space1
   name <- takeWhile1P (Just "module name") (not . isSpace)
   space1
-  exports <- haskellExports <|> pure []
+  rawExports <- haskellExports <|> pure []
   space
   string "where"
-  return <| Haskell name exports
+  ---
+  let exports =
+        rawExports |> map (\e -> Data.Text.concat [name, ".", e]) |>
+        map Identifier |>
+        map ((,) Exports)
+  return <| (Module name, exports)
 
 haskellExports :: Parser [Text]
 haskellExports = do
@@ -58,9 +78,9 @@ haskellExport :: Parser Text
 haskellExport = do
   space
   export <- some alphaNumChar <?> "export"
-  string "(..)" <|> "" -- TODO: hack alert!
+  string "(..)" <|> ""
   space
-  string "," <|> "" -- TODO: hack alert!
+  string "," <|> ""
   space
   return <| pack export
 
@@ -77,12 +97,14 @@ haskellImport :: Parser (Edge, Node)
 haskellImport = do
   string "import"
   space1
+  string "qualified" <|> ""
+  space
   name <-
     some
       ((oneOf <| '.' : ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) <?>
        "import")
   -- TODO: HaskellModule vs HaskellIdentifier
-  return (Imports, Haskell (pack name) [])
+  return (Imports, Module (pack name))
 
 dontCare :: Parser ()
 dontCare = do
