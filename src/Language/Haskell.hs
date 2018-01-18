@@ -101,21 +101,8 @@ importStatement = do
     some
       ((oneOf <| '.' : ['a' .. 'z'] ++ ['A' .. 'Z'] ++ ['0' .. '9']) <?>
        "import")
-  space
-  rawIdentifiers <- try importIdentifiers -- <|> pure []
-  let identifiers =
-        rawIdentifiers |> map (qualify (pack name)) |> map Identifier |>
-        map ((,) Imports)
-  return <| (Imports, Module (pack name)) : identifiers
-
-importIdentifiers :: Parser [Text]
-importIdentifiers = do
-  string "("
-  space
-  let single :: Parser String
-      single = some alphaNumChar
-  identifiers <- sepBy1 single ("," *> space)
-  pure <| map pack identifiers
+  dontCare -- adding imported identifiers created a lot of noise before
+  return [(Imports, Module (pack name))]
 
 dontCare :: Parser ()
 dontCare = do
