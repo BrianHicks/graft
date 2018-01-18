@@ -3,6 +3,7 @@ module Main where
 import Digraph (digraph)
 import Ingest (ingest)
 import Language.Haskell (haskell)
+import Protolude
 
 main :: IO ()
 main = do

@@ -13,6 +13,8 @@ import Data.Void
 import Flow
 import GHC.Generics (Generic)
 import Ingest (Ingester, ingester)
+import Prelude (fail) -- TODO: but we should not be failing anyway
+import Protolude
 import System.FilePath (FilePath)
 import System.FilePath.Glob (compile)
 import Text.Megaparsec
@@ -86,10 +88,11 @@ body :: Parser [(Edge, Node)]
 body = do
   space
   statements <- some statement
-  pure <| Prelude.concat <| catMaybes statements
+  pure <| Protolude.concat (catMaybes statements)
 
 statement :: Parser (Maybe [(Edge, Node)])
-statement = choice [Just <$> try importStatement, Nothing <$ dontCare]
+statement =
+  choice [Just <$> Text.Megaparsec.try importStatement, Nothing <$ dontCare]
 
 importStatement :: Parser [(Edge, Node)]
 importStatement = do

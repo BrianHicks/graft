@@ -4,25 +4,29 @@ module Digraph
 
 import Data.Graph.Inductive.Graph (labEdges, labNodes)
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import Data.List (intersperse)
+import Data.Text (append, filter, intercalate)
 import Flow
+import Protolude
 
-digraph :: (Show node, Show edge) => Gr node edge -> String
+-- TODO: dang, this is a lot harder with Text. There must be some templating
+-- library that would make this nicer.
+digraph :: (Show node, Show edge) => Gr node edge -> Text
 digraph graph =
   let nodes =
         map
-          (\(ident, label) -> quoted ident ++ "[label=" ++ quoted label ++ "];")
+          (\(id, label) ->
+             quoted id `append` "[label=" `append` quoted label `append` "];")
           (labNodes graph)
       edges =
         map
           (\(subj, obj, label) ->
-             quoted subj ++
-             " -> " ++ quoted obj ++ "[label=" ++ quoted label ++ "];")
+             quoted subj `append` " -> " `append` quoted obj `append` "[label=" `append`
+             quoted label `append`
+             "];")
           (labEdges graph)
-  in "digraph {\n" ++ join "\n" nodes ++ "\n" ++ join "\n" edges ++ "\n}"
+  in "digraph {\n" `append` Data.Text.intercalate "\n" nodes `append` "\n" `append`
+     Data.Text.intercalate "\n" edges `append`
+     "\n}"
 
-join :: String -> [String] -> String
-join char items = items |> intersperse char |> concat
-
-quoted :: Show a => a -> String
-quoted a = "\"" ++ filter (/= '"') (show a) ++ "\"" -- TODO: less cheating
+quoted :: Show a => a -> Text
+quoted a = "\"" `append` Data.Text.filter (/= '"') (show a) `append` "\"" -- TODO: less cheating

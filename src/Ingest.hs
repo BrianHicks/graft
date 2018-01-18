@@ -9,8 +9,10 @@ import Data.Graph.Inductive.Graph
         mkGraph)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Hashable (Hashable, hash)
+import Data.Monoid (Monoid, mappend, mempty)
 import Data.Text (Text, pack)
 import Flow
+import Protolude
 import System.Directory.PathWalk (pathWalkAccumulate)
 import System.FilePath (FilePath, combine, takeExtension)
 import System.FilePath.Glob (Pattern, match)
@@ -30,7 +32,7 @@ newtype Graph node edge =
   Graph (Gr node edge)
 
 instance Monoid (Graph node edge) where
-  mempty = Graph empty
+  mempty = Graph Data.Graph.Inductive.Graph.empty
   mappend (Graph x) (Graph y)
     -- note that the order matters here... nodes must come before
     -- edges since the graph library rightly refuses to add dangling
@@ -49,8 +51,9 @@ ingest ::
   => [Ingester node edge]
   -> FilePath
   -> IO (Gr node edge)
-ingest ingesters root =
-  ingestDirectory ingesters |> pathWalkAccumulate root |> fmap unwrap
+ingest ingesters root = do
+  accumulated <- pathWalkAccumulate root (ingestDirectory ingesters)
+  pure (unwrap accumulated)
 
 -- this signature is weird because it's meant to be used by pathWalk
 ingestDirectory ::
