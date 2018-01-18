@@ -11,7 +11,7 @@ digraph :: (Show node, Show edge) => Gr node edge -> String
 digraph graph =
   let nodes =
         labNodes graph |>
-        map (\(id, label) -> quoted id ++ "[label=" ++ quoted label ++ "];")
+        map (\(ident, label) -> quoted ident ++ "[label=" ++ quoted label ++ "];")
       edges =
         labEdges graph |>
         map
