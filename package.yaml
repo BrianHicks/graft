@@ -27,14 +27,9 @@ dependencies:
 - flow == 1.0.10
 - Glob == 0.9.1
 - hashable == 1.2.6.1
+- megaparsec == 6.3.0
 - pathwalk == 0.3.1.2
 - text == 1.2.2.2
-# dunno which parsing library is best yet so all of them, because plane
-- regex-compat == 0.95.1 # for matching lines to test... probably use a parser later
-- attoparsec == 0.13.2.0
-- parsec == 3.1.11
-- megaparsec == 6.3.0
-- parser-combinators == 0.4.0
 
 library:
   source-dirs: src
