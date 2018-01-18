@@ -35,7 +35,7 @@ instance Monoid (Graph node edge) where
     -- note that the order matters here... nodes must come before
     -- edges since the graph library rightly refuses to add dangling
     -- eges.
-   = x |> (insNodes <| labNodes y) |> (insEdges <| labEdges y) |> Graph
+   = x |> insNodes (labNodes y) |> insEdges (labEdges y) |> Graph
 
 unwrap :: Graph node edge -> Gr node edge
 unwrap (Graph g) = g
@@ -64,10 +64,10 @@ ingestDirectory ingesters dir _ files = do
   let fullPaths = map (combine dir) files
   -- TODO: strict evaluation for FS operations
   matched <- mapM (ingestFiles fullPaths) ingesters
-  pure <|
+  pure $
     case flatten matched of
       ([], []) -> mempty
-      (nodes, edges) -> Graph <| mkGraph nodes edges
+      (nodes, edges) -> Graph (mkGraph nodes edges)
 
 ingestFiles ::
      (Hashable node, Hashable edge)
@@ -77,7 +77,7 @@ ingestFiles ::
 ingestFiles files ingester = do
   let interesting = filter (match (forFiles ingester)) files
   nodesAndEdges <- mapM (ingestFile ingester) interesting
-  pure <| flatten nodesAndEdges
+  pure (flatten nodesAndEdges)
 
 ingestFile ::
      (Hashable node, Hashable edge)

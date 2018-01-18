@@ -10,14 +10,15 @@ import Flow
 digraph :: (Show node, Show edge) => Gr node edge -> String
 digraph graph =
   let nodes =
-        labNodes graph |>
-        map (\(ident, label) -> quoted ident ++ "[label=" ++ quoted label ++ "];")
+        map
+          (\(ident, label) -> quoted ident ++ "[label=" ++ quoted label ++ "];")
+          (labNodes graph)
       edges =
-        labEdges graph |>
         map
           (\(subj, obj, label) ->
              quoted subj ++
              " -> " ++ quoted obj ++ "[label=" ++ quoted label ++ "];")
+          (labEdges graph)
   in "digraph {\n" ++ join "\n" nodes ++ "\n" ++ join "\n" edges ++ "\n}"
 
 join :: String -> [String] -> String
